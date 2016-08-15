@@ -27,7 +27,7 @@ const setup = function() {
 		.option('-u, --url <url>','URL to parse')
 		.option('-d, --delineator [/]','string to split url on')
 		.option('-s, --single','Include single segments, i.e. "www" or "com"')
-		.option('-b, --base','Modify the base url, i.e. try `www.com` when sniffing `www.google.com`')
+		.option('-b, --base','Modify the base url, i.e. try "www.com" when sniffing "www.google.com"')
 		.option('-D, --diff','Show the difference in the URL')
 		.parse(process.argv);
 }
