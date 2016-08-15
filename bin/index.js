@@ -133,6 +133,7 @@ const split_urls = function(paramaters) {
 			segments: []
 		};
 		url_data.segments.push((paramaters.base ? url_data.whole_url : ""));
+		url_data.segments.push((paramaters.base ? url_data.whole_url : url_data.path.substring(1)));
 		if (paramaters.delineators.length === 1 && paramaters.delineators[0] === '') {
 			if (url_data.base_url.length > 12) {
 				throw new Error("Too many combinations, please use a delineator.")
