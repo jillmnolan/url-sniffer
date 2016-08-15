@@ -28,6 +28,7 @@ const setup = function() {
 		.option('-d, --delineator [/]','string to split url on')
 		.option('-s, --single','Include single segments, i.e. "www" or "com"')
 		.option('-b, --base','Modify the base url, i.e. try `www.com` when sniffing `www.google.com`')
+		.option('-D, --diff','Show the difference in the URL')
 		.parse(process.argv);
 }
 
@@ -36,7 +37,8 @@ const process_options = function() {
 		urls: null,
 		delineators: "/",
 		single: false,
-		single: false
+		base: false,
+		diff: false
 	};
 
 	if (program.args.length > 0) {
@@ -52,6 +54,7 @@ const process_options = function() {
 	if (program.delineator !== undefined) paramaters.delineators = program.delineator || paramaters.delineators;
 	paramaters.single = (program.single === true);
 	paramaters.base = (program.base === true);
+	paramaters.diff = (program.diff === true);
 
 	return paramaters;
 }
@@ -197,7 +200,14 @@ const check_urls = function() {
 	const promises = [];
 	for (var url = 0; url < all_url_data.length; url++) {
 		for (var segment = 0; segment < all_url_data[url].segments.length; segment++) {
-			promises.push(check_url(all_url_data[url].protocall, (paramaters.base ? all_url_data[url].segments[segment] : all_url_data[url].base_url + "/" + all_url_data[url].segments[segment])));
+			promises.push(check_url(
+				all_url_data[url].protocall,
+				(paramaters.base ?
+					all_url_data[url].segments[segment] :
+					all_url_data[url].base_url + "/" + all_url_data[url].segments[segment]
+				),
+				all_url_data[url].whole_url
+			));
 		}
 	}
 	return Promise.all(promises)
@@ -209,23 +219,24 @@ const check_urls = function() {
 		});
 }
 
-const check_url = function(protocall, base_url) {
+const check_url = function(protocall, base_url, whole_url) {
 	const url = protocall + "://" + base_url;
 	// return new pending promise
 	return new Promise((resolve, reject) => {
 		// select http or https module, depending on reqested url
 		const lib = url.startsWith('https') ? require('https') : require('http');
 		const request = lib.get(url, (response) => {
-			resolve([base_url, response.statusCode]);
+			resolve([base_url, response.statusCode, whole_url]);
 		});
 		// handle connection errors of the request
-		request.on('error', (err) => resolve([base_url, ""]));
+		request.on('error', (err) => resolve([base_url, "", whole_url]));
 		})
 };
 
 const display_results = function() {
-	const response_data = arguments[0].response_data;
 	const paramaters    = arguments[0].paramaters
+	const response_data = arguments[0].response_data;
+
 	var url_width = 0;
 	for (var i = 0; i < paramaters.urls.length; i++) {
 		url_width = Math.max(paramaters.urls[i].length, url_width);
@@ -233,23 +244,40 @@ const display_results = function() {
 	if ((typeof url_width) === 'string') {
 		url_width = url_width.length;
 	}
-	var table = new Table({
-		head: ['URL', 'Response'],
-		colWidths: [url_width + 2, 10],
+
+	var options = {
+
+		head: ['URL', 'Response', 'Diff'],
+		colWidths: [url_width - 5, 10, response_data[0][2].length - response_data[0][0].length + 2],
 		chars: {'mid': '', 'left-mid': '', 'mid-mid': '', 'right-mid': ''},
 		style: {head: ['white'], border: ['white']}
-	});
+
+	}
+
+	if (!paramaters.diff) {
+		options.head.pop();
+		options.colWidths.pop();
+	}
+
+	var table = new Table(options);
 	for (var i = 0; i < response_data.length; i++) {
 		response_data[i][1] = response_data[i][1].toString();
+		response_data[i][2] = string_diff(response_data[i][0], response_data[i][2]);
 		if (response_data[i][1] === "200") {
 			response_data[i][0] = response_data[i][0].green;
 			response_data[i][1] = response_data[i][1].green;
+			response_data[i][2] = response_data[i][2].green;
 		} else if (response_data[i][1].startsWith("3")) {
 			response_data[i][0] = response_data[i][0].yellow;
 			response_data[i][1] = response_data[i][1].yellow;
+			response_data[i][2] = response_data[i][2].yellow;
 		} else {
 			response_data[i][0] = response_data[i][0].red;
 			response_data[i][1] = response_data[i][1].red;
+			response_data[i][2] = response_data[i][2].red;
+		}
+		if (!paramaters.diff) {
+			response_data[i].pop();
 		}
 		table.push(response_data[i]);
 	}
@@ -262,6 +290,23 @@ const display_results = function() {
 
 const remove_at_index = function(obj, index) {
 	return obj.slice(0, index) + obj.slice(index + 1);
+}
+
+const string_diff = function(a, b)
+{
+    var i = 0;
+    var j = 0;
+    var result = "";
+
+    while (j < b.length)
+    {
+        if (a[i] != b[j] || i == a.length)
+            result += b[j];
+        else
+            i++;
+        j++;
+    }
+    return result;
 }
 
 main();
